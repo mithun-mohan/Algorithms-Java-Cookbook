@@ -1,1 +1,1 @@
-# Java Library of Data Structure and Algorithm Implementations
+# Java Library: Data Structure and Algorithm Implementations
