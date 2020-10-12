@@ -1,4 +1,9 @@
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
+
 import static java.lang.Math.min;
 
 /**
@@ -75,6 +80,7 @@ public class SimplifyDebts {
       //  Add an edge from source to sink in the new graph with obtained maximum flow as it's weight
       solver.addEdge(source, sink, maxFlow);
     }
+    solver.reduceLoops();
     //  Print the edges in the graph
     solver.printEdges();
     System.out.println();
@@ -85,6 +91,7 @@ public class SimplifyDebts {
     solver.addEdge(1, 2, 40);
     //  Transactions made by Charlie
     solver.addEdge(2, 3, 20);
+    solver.addEdge(2, 1, 3);
     //  Transactions made by David
     solver.addEdge(3, 4, 50);
     //  Transactions made by Fred
@@ -433,6 +440,30 @@ abstract class NetworkFlowSolverBase {
     solved = false;
   }
 
+  /**
+   * reduce loops (bidirectional edges) in resulting graph
+   */
+  public void reduceLoops() {
+    Predicate<Edge> isDirected = (e) -> e.from > e.to; // constant arbitrary order
+    UnaryOperator<Edge> reverse = e -> new Edge(e.to, e.from, -e.capacity);
+    // keyMapper could be Identity (it->it) if proper hashCode() and equals() implemented in Edge
+    Function<Edge, List<Integer>> keyMapper = e -> Arrays.asList(e.from, e.to);
+    // sum(capacity) group by keyMapper implementation
+    Map<List<Integer>, Long> groupedMap = edges.stream()
+            .map(e -> isDirected.test(e) ? e : reverse.apply(e))
+            .collect(Collectors.toMap(
+                    keyMapper,
+                    e -> e.capacity,
+                    Long::sum
+            ));
+    // reverse negative edges
+    Predicate<Edge> isNegative = (e) -> e.capacity < 0;
+    edges = groupedMap.entrySet().stream()
+            .map(it -> new Edge(it.getKey().get(0), it.getKey().get(1), it.getValue()))
+            .filter(it -> it.capacity != 0)
+            .map(e -> isNegative.test(e) ? reverse.apply(e) : e)
+            .collect(Collectors.toList());
+  }
   /**
    * Print all edges.
    */
